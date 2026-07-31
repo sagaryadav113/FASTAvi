@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FASTA-Guided lncRNA Hotspot Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1100px;
+            width: 100%;
+        }
+
+        header {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            margin: 0 0 8px 0;
+            color: #1e293b;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin: 0;
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            font-size: 1.05rem;
+            margin-top: 0;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 6px;
+            color: #334155;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #475569;
+        }
+
+        textarea {
+            width: 100%;
+            height: 110px;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        .row-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            margin-top: 5px;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: #059669;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover {
+            background-color: #047857;
+        }
+
+        canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: #ffffff;
+        }
+
+        .extracted-box {
+            margin-top: 15px;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-family: monospace;
+            font-size: 0.82rem;
+            word-break: break-all;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>FASTA-Guided lncRNA Hotspot Visualizer</h1>
+        <p>Paste FASTA sequence & enter nucleotide ranges to map and extract binding regions</p>
+    </header>
+
+    <div class="grid">
+        <!-- Input Form -->
+        <div class="card">
+            <h2>FASTA Sequence Input</h2>
+            <div class="form-group">
+                <label for="fastaInput">Paste FASTA Text</label>
+                <textarea id="fastaInput" placeholder=">ENST00000550268.3 SYT1-AS1&#10;AAACACUCCCUGCAAGCCUGCUAAGCUGGAAGAAUAUGUG..."></textarea>
+            </div>
+
+            <h2>Hotspot Nucleotide Ranges</h2>
+            <!-- Hotspot 1 -->
+            <div class="form-group">
+                <label style="color: #dc2626;">Primary Range (nt)</label>
+                <div class="row-inputs">
+                    <input type="number" id="h1Start" value="1300" placeholder="Start">
+                    <input type="number" id="h1End" value="1412" placeholder="End">
+                </div>
+            </div>
+            <!-- Hotspot 2 -->
+            <div class="form-group">
+                <label style="color: #d97706;">Secondary Range (nt)</label>
+                <div class="row-inputs">
+                    <input type="number" id="h2Start" value="445" placeholder="Start">
+                    <input type="number" id="h2End" value="524" placeholder="End">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="processAndDraw()">Process FASTA & Update Map</button>
+            <button class="btn btn-secondary" onclick="downloadImage()">Download Map PNG</button>
+        </div>
+
+        <!-- Visualizer & Extracted Sequence -->
+        <div class="card">
+            <canvas id="mapCanvas" width="1200" height="420"></canvas>
+            
+            <h3 style="font-size:0.95rem; margin:15px 0 5px 0; color:#334155;">
+                Extracted Primary Fragment Sequence (<span id="fragLen">0</span> nt):
+            </h3>
+            <div class="extracted-box" id="extractedSeq">
+                Paste a FASTA sequence and click process to extract sequence fragment.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function parseFASTA(fastaText) {
+        const lines = fastaText.trim().split('\n');
+        let header = "lncRNA Transcript";
+        let seq = "";
+
+        for (let line of lines) {
+            line = line.trim();
+            if (line.startsWith('>')) {
+                header = line.substring(1).split(' ')[0];
+            } else {
+                seq += line.toUpperCase().replace(/[^GACUT]/g, '');
+            }
+        }
+
+        return { header, seq, length: seq.length };
+    }
+
+    function processAndDraw() {
+        const fastaRaw = document.getElementById('fastaInput').value;
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Parse FASTA
+        let { header, seq, length } = parseFASTA(fastaRaw);
+        
+        // Fallback if no FASTA is pasted
+        if (length === 0) {
+            header = "SYT1-AS1 (ENST00000550268.3)";
+            length = 1892;
+        }
+
+        const h1S = parseInt(document.getElementById('h1Start').value);
+        const h1E = parseInt(document.getElementById('h1End').value);
+
+        const h2S = parseInt(document.getElementById('h2Start').value);
+        const h2E = parseInt(document.getElementById('h2End').value);
+
+        // Extract fragment sequence if sequence is provided
+        const extractedBox = document.getElementById('extractedSeq');
+        const fragLenSpan = document.getElementById('fragLen');
+
+        if (seq.length > 0 && !isNaN(h1S) && !isNaN(h1E) && h1S <= seq.length) {
+            const subSeq = seq.substring(h1S - 1, h1E);
+            extractedBox.innerText = `>${header}_nt_${h1S}_${h1E}\n` + subSeq;
+            fragLenSpan.innerText = subSeq.length;
+        } else {
+            extractedBox.innerText = "Fragment extraction available when valid FASTA is pasted.";
+            fragLenSpan.innerText = "0";
+        }
+
+        // Draw Canvas
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Title
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 24px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Predicted Hotspots: ${header} (${length} nt)`, width / 2, 45);
+
+        const marginX = 80;
+        const drawWidth = width - (marginX * 2);
+        const lineY = 200;
+
+        // X-Axis Grid
+        const numTicks = 5;
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = '#64748b';
+        ctx.font = '16px sans-serif';
+
+        for (let i = 0; i <= numTicks; i++) {
+            const val = Math.round((length / numTicks) * i);
+            const x = marginX + (val / length) * drawWidth;
+
+            ctx.beginPath();
+            ctx.moveTo(x, 90);
+            ctx.lineTo(x, 300);
+            ctx.stroke();
+
+            ctx.fillText(val, x, 330);
+        }
+
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 17px sans-serif';
+        ctx.fillText("Nucleotide Position (nt)", width / 2, 380);
+
+        function getX(nt) {
+            return marginX + (nt / length) * drawWidth;
+        }
+
+        // 1. Base Line
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(getX(1), lineY);
+        ctx.lineTo(getX(length), lineY);
+        ctx.stroke();
+
+        // 2. Secondary Hotspot
+        if (!isNaN(h2S) && !isNaN(h2E) && h2S < h2E) {
+            ctx.strokeStyle = '#f97316';
+            ctx.lineWidth = 20;
+            ctx.beginPath();
+            ctx.moveTo(getX(h2S), lineY);
+            ctx.lineTo(getX(h2E), lineY);
+            ctx.stroke();
+        }
+
+        // 3. Primary Hotspot
+        if (!isNaN(h1S) && !isNaN(h1E) && h1S < h1E) {
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 26;
+            ctx.beginPath();
+            ctx.moveTo(getX(h1S), lineY);
+            ctx.lineTo(getX(h1E), lineY);
+            ctx.stroke();
+        }
+    }
+
+    function downloadImage() {
+        const canvas = document.getElementById('mapCanvas');
+        const link = document.createElement('a');
+        link.download = 'lncRNA_FASTA_Binding_Map.png';
+        link.href = canvas.toDataURL('image/png', 1.0);
+        link.click();
+    }
+
+    window.onload = processAndDraw;
+</script>
+
+</body>
+</html>
